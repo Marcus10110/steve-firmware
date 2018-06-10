@@ -1,6 +1,9 @@
 #include "defines.h"
 #include "pumps.h"
 
+PRODUCT_ID(7639);
+PRODUCT_VERSION(1);
+
 //cloud variables.
 String deviceName = "";
 String revisionName = "";
