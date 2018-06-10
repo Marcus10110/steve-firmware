@@ -19,7 +19,7 @@ void setup()
   Particle.subscribe("particle/device/name", deviceNameHandler);
   Particle.publish("particle/device/name");
   //device revision stuff
-  updateRevisionString();
+  revisionName = GetRevisionString();
   Particle.variable("revision", revisionName);
   Particle.function("setRevision", setRevision);
 
@@ -27,6 +27,14 @@ void setup()
   Particle.variable("isReady", isReadyForNewDrink);
   Particle.variable("timeLeft", timeRemainingMs);
   Particle.variable("lastError", lastError);
+
+  //attempt to load the DeviceRevision from EEPROM.
+  DeviceRevision loaded_revision;
+  if( ParseEeprom(loaded_revision))
+  {
+    gPumps.SetRevision(loaded_revision);
+    revisionName = GetRevisionString();
+  }
 }
 
 void loop()
@@ -92,19 +100,16 @@ void deviceNameHandler(const char *topic, const char *data) {
     deviceName = data;
 }
 
-void updateRevisionString()
+String GetRevisionString()
 {
   switch(gPumps.GetRevision())
   {
     case DeviceRevision::Unset:
-      revisionName = "Unset";
-      break;
+      return "Unset";
     case DeviceRevision::SteveV1:
-      revisionName = "SteveV1";
-      break;
+      return "SteveV1";
     case DeviceRevision::SteveV2:
-      revisionName = "SteveV2";
-      break;
+      return "SteveV2";
   }
 }
 
@@ -124,7 +129,41 @@ int setRevision(String rev)
   }
 
   gPumps.SetRevision(revision);
-  updateRevisionString();
-
+  revisionName = GetRevisionString();
+  WriteEepromRevision();
   return 0;
+}
+
+//EEPROM operations;
+void WriteEepromRevision()
+{
+  uint8_t contents[10];
+  const DeviceRevision revision = gPumps.GetRevision();
+  GetRevisionString().getBytes(contents, 10);
+
+  EEPROM.put(0, contents);
+}
+
+bool ParseEeprom(DeviceRevision& loaded_revision)
+{
+  char buffer[10];
+  EEPROM.get(0, buffer);
+  if( strcmp(buffer,"Unset") == 0 )
+  {
+    loaded_revision = DeviceRevision::Unset;
+    return true;
+  }
+  else if( strcmp(buffer,"SteveV1") == 0 )
+  {
+    loaded_revision = DeviceRevision::SteveV1;
+    return true;
+  }
+  else if( strcmp(buffer,"SteveV2") == 0 )
+  {
+    loaded_revision = DeviceRevision::SteveV2;
+    return true;
+  }
+
+  lastError = String("parse error: ") + buffer;
+  return false;
 }
